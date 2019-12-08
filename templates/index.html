@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.staticfile.org/jquery/1.10.2/jquery.min.js"></script>
+    <meta charset="UTF-8">
+    <title>主页</title>
+</head>
+<body>
+<div>
+    <form action="/create">
+        用户名：
+        <input type="text" name="username">
+        密码：
+        <input type="password" name="password">
+        <input type="submit" value="创建用户">
+    </form>
+</div>
+<br>
+<div id="tableAjax">
+</div>
+
+<script type="text/javascript">$(function () {
+        $.get("/list", function (data, status) {
+            createTable(data)
+        });
+    });
+
+    function createTable(data) {
+        data = JSON.parse(data);
+        var table = document.createElement("table");
+        table.className = "tab-list";
+        table.width = "99%";
+        var tbody = document.createElement("tbody");
+        table.appendChild(tbody);
+        var caption = table.createCaption();
+        caption.innerHTML = "用户表";
+        var str = "id,用户名,密码".split(",");
+        var tr = tbody.insertRow(0);
+        for (var i = 0; i < str.length; i++) {
+            var th = document.createElement("th");
+            th.innerHTML = str[i];
+            tr.appendChild(th)
+        }
+        for (var i = 0; i < data.length; i++) {
+            var tr = tbody.insertRow(tbody.rows.length);
+            var obj = data[i];
+            for (var c in obj) {
+                var td = tr.insertCell(tr.cells.length);
+                td.innerHTML = obj[c];
+                td.align = "center"
+            }
+            td = tr.insertCell(tr.cells.length);
+
+            //修改密码表单
+            var modify = document.createElement("form");
+            var input = document.createElement("input");
+            input.setAttribute("name", "password");
+            input.setAttribute("value", obj.password);
+            modify.appendChild(input)
+            modify.setAttribute("action", "update");
+
+            var user = document.createElement("input");
+            user.setAttribute("name", "username");
+            user.setAttribute("value", obj.username);
+            user.setAttribute("type", "hidden");
+            modify.appendChild(user);
+            var submit = document.createElement("input");
+            submit.setAttribute("type", "submit");
+            submit.setAttribute("value", "修改");
+            modify.appendChild(submit);
+            td.appendChild(modify);
+            //删除键
+            td = tr.insertCell(tr.cells.length);
+            var a = document.createElement("a");
+            a.setAttribute("href", "delete?id=" + obj.id);
+            a.innerHTML = "删除";
+            td.appendChild(a);
+        }
+        document.body.appendChild(table)
+    }
+
+    function updatePassword(obj, modify) {
+        modify.setAttribute("new", prompt("新密码", obj.password))
+    }
+
+</script>
+</body>
+</html>

@@ -2,9 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/crypto/bcrypt"
+	"html/template"
 	"net/http"
 	"strconv"
 )
@@ -19,6 +20,7 @@ func main() {
 	checkError(err)
 	defer db.Close()
 	err = db.Ping()
+	//建表
 	db.Exec("CREATE table if not exists User (id INTEGER PRIMARY KEY NOT NULL,username text,password text)")
 	checkError(err)
 	port := strconv.Itoa(9999)
@@ -26,9 +28,10 @@ func main() {
 	http.HandleFunc("/list", listHandler)
 	http.HandleFunc("/update", updateHandler)
 	http.HandleFunc("/delete", deleteHandler)
+	http.HandleFunc("/", indexHandler)
+	fmt.Println("Service up")
 
 	http.ListenAndServe(":"+port, nil)
-	fmt.Println("Service up")
 }
 
 func checkError(err error) {
@@ -36,36 +39,58 @@ func checkError(err error) {
 		panic(err)
 	}
 }
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	t, _ := template.ParseFiles("./templates/index.html")
+	data := map[string]string{"name": "wxy"}
+	t.Execute(w, data)
+}
+
+//创建用户
 func createHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte (password), bcrypt.DefaultCost)
+	//hashedPassword, err := bcrypt.GenerateFromPassword([]byte (password), bcrypt.DefaultCost)
 	checkError(err)
-	_, err = db.Exec(`Insert into User (username,password) values(?,?)`, username, hashedPassword)
+	_, err = db.Exec(`Insert into User (username,password) values(?,?)`, username, password)
 	checkError(err)
-	fmt.Println("Created user: ", username)
+	fmt.Printf("Created user: %s\n", username)
+	http.Redirect(w, r, "/", http.StatusMovedPermanently)
 }
+
+//列出所有用户
 func listHandler(w http.ResponseWriter, r *http.Request) {
+	var users []User
 	rows, _ := db.Query("SELECT * from user ")
 	for rows.Next() {
 		var user User
 		rows.Scan(&user.Id, &user.Username, &user.Password)
-		fmt.Println("User: ", user)
+		users = append(users, user)
 	}
+	juser, _ := json.Marshal(users)
+	fmt.Fprintf(w, string(juser))
 }
+
+//通过username，更新用户密码
 func updateHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	//hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	checkError(err)
-	_, err = db.Exec(`update user set password=? where username=?`, hashedPassword, username)
-	fmt.Println("Updated password for ", username)
+	_, err = db.Exec(`update user set password=? where username=?`, password, username)
+	fmt.Printf("Updated password for %s\n", username)
 	checkError(err)
+	http.Redirect(w, r, "/", http.StatusMovedPermanently)
 }
+
+//通过用户id删除用户
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r)
 	id, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
 	checkError(err)
-	_, err = db.Exec(`delete from user where id=?`, id)
+	stmt := `delete from user where id=?`
+	_, err = db.Exec(stmt, id)
+	fmt.Println(stmt)
 	checkError(err)
-	fmt.Println("delete user whose id = ", id)
+	fmt.Printf("delete user whose id = %d\n", id)
+	http.Redirect(w, r, "/", http.StatusMovedPermanently)
 }
